@@ -1,15 +1,12 @@
 import express from "express";
-import http from "http";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
-import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
+import { prismaClient } from "./lib/db";
 
 import cors from "cors";
-
 const init = async () => {
   const app = express();
   const PORT = Number(process.env.PORT) || 8000;
-  const httpServer = http.createServer(app);
 
   app.use(cors());
   app.use(express.json());
@@ -18,8 +15,11 @@ const init = async () => {
   const gqlServer = new ApolloServer({
     typeDefs: `
         type Query {
-          hello: String!,
+          hello: String,
           say(name:String):String
+        }
+        type Mutation{
+          createUser(firstName:String!, lastName:String!,email:String!,password:String!):Boolean
         }
       `, // Schema
     resolvers: {
@@ -28,8 +28,34 @@ const init = async () => {
         say: (_: any, { name }: { name: string }) =>
           `Welcome To The ${name || "World"} Server`,
       },
+      Mutation: {
+        createUser: async (
+          _: any,
+          {
+            firstName,
+            lastName,
+            email,
+            password,
+          }: {
+            firstName: string;
+            lastName: string;
+            email: string;
+            password: string;
+          }
+        ) => {
+          await prismaClient.user.create({
+            data: {
+              email,
+              firstName,
+              lastName,
+              password,
+              salt: "ranjansharma",
+            },
+          });
+          return true;
+        },
+      },
     }, // Resolvers Function of query and mutation
-    plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
   });
 
   // Start the gql Server
@@ -43,7 +69,7 @@ const init = async () => {
   );
 
   app.get("/", (req, res) => {
-    res.json({ message: `Server is running on port ${PORT}` });
+    res.json({ message: `Server is Running On Port Number ${PORT}` });
   });
 
   app.listen(PORT, () => {
